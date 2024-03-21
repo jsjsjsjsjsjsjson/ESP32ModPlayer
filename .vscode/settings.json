@@ -1,0 +1,49 @@
+{
+  "C_Cpp.intelliSenseEngine": "default",
+  "MicroPython.executeButton": [
+    {
+      "text": "▶",
+      "tooltip": "运行",
+      "alignment": "left",
+      "command": "extension.executeFile",
+      "priority": 3.5
+    }
+  ],
+  "MicroPython.syncButton": [
+    {
+      "text": "$(sync)",
+      "tooltip": "同步",
+      "alignment": "left",
+      "command": "extension.execute",
+      "priority": 4
+    }
+  ],
+  "idf.flashType": "UART",
+  "idf.portWin": "COM4",
+  "idf.adapterTargetName": "esp32",
+  "files.associations": {
+    "esp_log.h": "c",
+    "saw_table.h": "c",
+    "*.tcc": "c",
+    "chrono": "c",
+    "cmath": "c",
+    "ssd1306.h": "c",
+    "gpio.h": "c",
+    "math.h": "c",
+    "samp.h": "c",
+    "keypad.h": "c",
+    "freertos.h": "c",
+    "task.h": "c",
+    "stdbool.h": "c",
+    "*.ipp": "c",
+    "u8g2_esp32_hal.h": "c",
+    "spi_master.h": "c",
+    "i2c.h": "c",
+    "u8g2.h": "c",
+    "long.h": "c",
+    "approach.h": "c",
+    "compare": "c"
+  },
+  "cmake.configureOnOpen": true,
+  "idf.port": "/dev/cu.wchusbserial56280085231"
+}
