@@ -1,6 +1,7 @@
 # ESP32 MOD Player
 
 This project is an MOD music player based on ESP32, capable of playing MOD music files. MOD is an 8-bit sample tracker file format used on the Amiga computer.
+![1000043204](https://github.com/jsjsjsjsjsjsjson/ESP32ModPlayer/assets/86410439/08d41d47-c43a-4c29-82e3-08360a252585)
 
 ## Features
 
