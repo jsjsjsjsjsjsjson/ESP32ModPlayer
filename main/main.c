@@ -5,7 +5,7 @@
 #include <driver/gpio.h>
 #include <math.h>
 #include <esp_log.h>
-#include "approach.h"
+#include "8bit.h"
 #include "ssd1306.h"
 // #include "font8x8_basic.h"
 #include "vol_table.h"
@@ -232,6 +232,8 @@ bool enbSlideDown[4] = {false};
 uint8_t SlideDown[4] = {false};
 uint16_t Mtick = 0;
 uint16_t TICK_NUL = roundf(SMP_RATE / (125 * 0.4));
+bool skipToNextPart = false;
+uint8_t skipToAnyPart = false;
 // COMP TASK START ----------------------------------------------
 void comp() {
     pwm_audio_config_t pwm_audio_config = {
@@ -316,13 +318,16 @@ void comp() {
                         } else if (tick_time == tick_speed) {
                             tick_time = 0;
                             for (uint8_t chl = 0; chl < 4; chl++) {
-                                /*
                                 if (part_buffer[part_buffer_point][tracker_point][chl][2] == 13) {
-                                    tracker_point++;
-                                    part_buffer_point++;
-                                    break;
+                                    if (part_buffer[part_buffer_point][tracker_point][chl][3] == 0) {
+                                        skipToNextPart = true;
+                                    }
                                 }
-                                */
+                                if (part_buffer[part_buffer_point][tracker_point][chl][2] == 11) {
+                                    if (part_buffer[part_buffer_point][tracker_point][chl][3]) {
+                                        skipToAnyPart = part_buffer[part_buffer_point][tracker_point][chl][3];
+                                    }
+                                }
                                 if (part_buffer[part_buffer_point][tracker_point][chl][1]) {
                                     smp_num[chl] = part_buffer[part_buffer_point][tracker_point][chl][1];
                                     vol[chl] = 64;
@@ -423,7 +428,7 @@ void comp() {
                                         arpFreq[1][chl] = freq_up(arpFreq[0][chl], arpNote[0][chl]);
                                         arpFreq[2][chl] = freq_up(arpFreq[0][chl], arpNote[1][chl]);
                                         enbArp[chl] = true;
-                                        printf("ARP CTRL %d %d %f %f %f\n", arpNote[0][chl], arpNote[1][chl], frq[chl], freq_up(frq[chl], arpNote[0][chl]), freq_up(frq[chl], arpNote[1][chl]));
+                                        // printf("ARP CTRL %d %d %f %f %f\n", arpNote[0][chl], arpNote[1][chl], frq[chl], freq_up(frq[chl], arpNote[0][chl]), freq_up(frq[chl], arpNote[1][chl]));
                                     }
                                 } else {
                                     arp_p = 0;
@@ -438,9 +443,15 @@ void comp() {
                                 //}
                             }
                             tracker_point++;
-                            if (tracker_point > 63) {
+                            if ((tracker_point > 63) || skipToNextPart || skipToAnyPart) {
                                 printf("%d\n", part_buffer_point);
                                 tracker_point = 0;
+                                skipToNextPart = false;
+                                if (skipToAnyPart) {
+                                    part_point = skipToAnyPart;
+                                    printf("SKIP TO %d\n", part_point);
+                                    skipToAnyPart = false;
+                                }
                                 part_buffer_point++;
                                 if (part_buffer_point > 1){
                                     part_buffer_point = 0;
