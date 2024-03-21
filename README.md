@@ -20,7 +20,8 @@ This project is an MOD music player based on ESP32, capable of playing MOD music
 1. Use the `byte_tool.py` in the `extratools` folder to convert MOD music files into C language arrays.
 2. Include the converted MOD music files in `main.c` for playback. Several songs are already included.
 3. Compile and flash the project onto the ESP32 development board.
-4. Run the project to start playing MOD music.
+4. Plug the speaker into GPIO12 (or you can change the pwm_audio_config structure to make the audio output into any other PWM pin)
+5. Run the project to start playing MOD music.
 
 ## Possible Future Features
 
@@ -30,6 +31,7 @@ This project is an MOD music player based on ESP32, capable of playing MOD music
 ## Notes
 
 - This project only supports MOD music files in specific formats.
+- If you do not have an SSD1306 screen, remove the code in the app_main function that starts the "wave_view" task. This will not affect any playback functionality
 - Make sure to have the ESP-IDF development environment installed before compiling and flashing the project.
 
 ## Contribution
