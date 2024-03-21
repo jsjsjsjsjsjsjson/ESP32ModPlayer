@@ -444,19 +444,21 @@ void comp() {
                             }
                             tracker_point++;
                             if ((tracker_point > 63) || skipToNextPart || skipToAnyPart) {
-                                printf("%d\n", part_buffer_point);
                                 tracker_point = 0;
-                                skipToNextPart = false;
                                 if (skipToAnyPart) {
                                     part_point = skipToAnyPart;
                                     printf("SKIP TO %d\n", part_point);
                                     skipToAnyPart = false;
+                                    loadOk = true;
+                                    while(loadOk){vTaskDelay(1);}
                                 }
+                                skipToNextPart = false;
                                 part_buffer_point++;
                                 if (part_buffer_point > 1){
                                     part_buffer_point = 0;
                                 }
                                 loadOk = true;
+                                printf("%d\n", part_buffer_point);
                             }
                         }
                     }
@@ -487,7 +489,7 @@ void load() {
             }
             loadOk = false;
         }
-        vTaskDelay(4);
+        vTaskDelay(2);
     }
 }
 

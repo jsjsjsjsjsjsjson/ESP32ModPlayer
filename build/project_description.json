@@ -1,7 +1,7 @@
 {
     "version":            "1.1",
     "project_name":       "main",
-    "project_version":    "1cb86fb-dirty",
+    "project_version":    "d35289f-dirty",
     "project_path":       "/Users/libchara/Desktop/ESP32_synz_remake",
     "idf_path":           "/Users/libchara/esp/v5.2.1/esp-idf",
     "build_dir":          "/Users/libchara/Desktop/ESP32_synz_remake/build",
@@ -2202,18 +2202,6 @@
             "managed_priv_reqs": [],
             "include_dirs": [ "." ]
         },
-        "espressif__pwm_audio": {
-            "alias": "idf::espressif__pwm_audio",
-            "target": "___idf_espressif__pwm_audio",
-            "prefix": "idf",
-            "dir": "/Users/libchara/Desktop/ESP32_synz_remake/managed_components/espressif__pwm_audio",
-            "lib": "__idf_espressif__pwm_audio",
-            "reqs": [ "driver" ],
-            "priv_reqs": [ "espressif__cmake_utilities" ],
-            "managed_reqs": [],
-            "managed_priv_reqs": [ "espressif__cmake_utilities" ],
-            "include_dirs": [ "include" ]
-        },
         "espressif__cmake_utilities": {
             "alias": "idf::espressif__cmake_utilities",
             "target": "___idf_espressif__cmake_utilities",
@@ -2225,6 +2213,18 @@
             "managed_reqs": [],
             "managed_priv_reqs": [],
             "include_dirs": []
+        },
+        "espressif__pwm_audio": {
+            "alias": "idf::espressif__pwm_audio",
+            "target": "___idf_espressif__pwm_audio",
+            "prefix": "idf",
+            "dir": "/Users/libchara/Desktop/ESP32_synz_remake/managed_components/espressif__pwm_audio",
+            "lib": "__idf_espressif__pwm_audio",
+            "reqs": [ "driver" ],
+            "priv_reqs": [ "espressif__cmake_utilities" ],
+            "managed_reqs": [],
+            "managed_priv_reqs": [ "espressif__cmake_utilities" ],
+            "include_dirs": [ "include" ]
         }
     },
     "debug_prefix_map_gdbinit": ""
