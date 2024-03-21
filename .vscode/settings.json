@@ -42,7 +42,8 @@
     "u8g2.h": "c",
     "long.h": "c",
     "approach.h": "c",
-    "compare": "c"
+    "compare": "c",
+    "string.h": "c"
   },
   "cmake.configureOnOpen": true,
   "idf.port": "/dev/cu.wchusbserial56280085231"
