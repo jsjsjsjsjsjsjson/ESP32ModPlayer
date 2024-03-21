@@ -449,8 +449,8 @@ void comp() {
                                     part_point = skipToAnyPart;
                                     printf("SKIP TO %d\n", part_point);
                                     skipToAnyPart = false;
-                                    loadOk = true;
-                                    while(loadOk){vTaskDelay(1);}
+                                    read_part_data(tracker_data, part_table[part_point], part_buffer[!part_buffer_point]);
+                                    part_point++;
                                 }
                                 skipToNextPart = false;
                                 part_buffer_point++;
@@ -489,7 +489,7 @@ void load() {
             }
             loadOk = false;
         }
-        vTaskDelay(2);
+        vTaskDelay(4);
     }
 }
 
