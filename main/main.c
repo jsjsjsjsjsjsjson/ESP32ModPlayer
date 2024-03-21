@@ -7,8 +7,6 @@
 #include <esp_log.h>
 #include "approach.h"
 #include "keypad.h"
-// #include "u8g2_esp32_hal.h"
-// #include "u8g2.h"
 #include "ssd1306.h"
 // #include "font8x8_basic.h"
 #include "vol_table.h"
@@ -71,31 +69,6 @@ float samp_frequency(int note) {
 }
 // NOTE COMP END ------------------------------------------------
 
-/* U8G2 INIT START ----------------------------------------------
-u8g2_esp32_hal_t u8g2_esp32_hal = U8G2_ESP32_HAL_DEFAULT;
-u8g2_t u8g2;
-
-void init_u8g2() {
-    u8g2_esp32_hal.bus.i2c.sda = 21;
-    u8g2_esp32_hal.bus.i2c.scl = 22;
-    u8g2_esp32_hal_init(u8g2_esp32_hal);
-
-    u8g2_Setup_ssd1306_i2c_128x64_noname_f(
-        &u8g2, U8G2_R0,
-        // u8x8_byte_sw_i2c,
-        u8g2_esp32_i2c_byte_cb,
-        u8g2_esp32_gpio_and_delay_cb);  // init u8g2 structure
-    u8x8_SetI2CAddress(&u8g2.u8x8, 0x78);
-
-    ESP_LOGI("U8G2", "u8g2_InitDisplay");
-    u8g2_InitDisplay(&u8g2);  // send init sequence to the display, display is in
-                            // sleep mode after this,
-
-    ESP_LOGI("U8G2", "u8g2_SetPowerSave");
-    u8g2_SetPowerSave(&u8g2, 0);  // wake up display
-}
-*/
-// U8G2 INIT END ------------------------------------------------
 char ten[16];
 int8_t vol[CHL_NUM] = {0};
 int16_t period[4] = {1};
@@ -401,19 +374,6 @@ void comp() {
                                 } else {
                                     volUp[chl] = volDown[chl] = 0;
                                 }
-                                /*
-                                if (part_buffer[part_buffer_point][tracker_point][chl][2] == 3) {
-                                    if (part_buffer[part_buffer_point][tracker_point][chl][0] &&
-                                        part_buffer[part_buffer_point][tracker_point][chl][3]) {
-                                        portToneTarget[chl] = part_buffer[part_buffer_point][tracker_point][chl][0];
-                                        portToneSpeed[chl] = part_buffer[part_buffer_point][tracker_point][chl][3];
-                                    }
-                                    enbPortTone[chl] = true;
-                                    printf("ENB PORT TONE\n");
-                                } else {
-                                    enbPortTone[chl] = false;
-                                }
-                                */
                                 if (part_buffer[part_buffer_point][tracker_point][chl][2] == 1) {
                                     SlideUp[chl] = part_buffer[part_buffer_point][tracker_point][chl][3];
                                     printf("SET SLIDEUP IS %d\n", part_buffer[part_buffer_point][tracker_point][chl][3]);
@@ -521,53 +481,6 @@ void load() {
     }
 }
 
-/*
-void getkey() {
-    btm_size = 0;
-    for (uint8_t i = 0; i < 16; i++) {
-        if (input_diff_stat[i]) {
-            push_stat[btm_size] = i;
-            btm_size ++;
-        }
-    }
-//    for (uint8_t i = 0; i < btm_size; i++) {
-//        printf("%d", push_stat[i]);
-//    }
-//    if(btm_size){printf("\n");}
-    btm_size = btm_size % 4;
-}
-*/
-
-void keypad_input() {
-    matrix_keypad_init();
-    while(true){
-        for (uint8_t i = 0; i < 16; i++) {
-            input_diff_stat[i] = false;
-        }
-        for (uint8_t i = 0; i < 16; i++) {
-            input_last_stat[i] = input_stat[i];
-        }
-        read_matrix_keypad();
-        for (uint8_t i = 0; i < COL_NUM; i++) {
-            for (uint8_t j = 0; j < ROW_NUM; j++) {
-                input_stat[(j*4)+i] = key_states[i][j];
-            }
-        }
-        for (uint8_t i = 0; i < 16; i++) {
-            if ((input_last_stat[i] != input_stat[i]) && input_last_stat[i]) {
-                input_diff_stat[i] = 2;
-            } else if ((input_last_stat[i] != input_stat[i]) && !input_last_stat[i]) {
-                input_diff_stat[i] = 1;
-            }
-        }
-//        for (uint8_t i = 0; i < 16; i++) {
-//            printf("%d ", input_diff_stat[i]);
-//        }
-//        /*if (btm_size) {*/printf("\n");//}
-        vTaskDelay(1);
-    }
-}
-
 void read_pattern_table() {
     NUM_PATTERNS = tracker_data[950];
     for (uint8_t i = 0; i < NUM_PATTERNS; i++) {
@@ -579,12 +492,12 @@ void read_pattern_table() {
 
 int find_max(int size) {
     if (size <= 0) {
-        return -1;  // 数组为空，返回-1表示错误
+        return -1;
     }
-    int max = part_table[0];  // 假设第一个元素为最大值
+    int max = part_table[0];
     for (int i = 1; i < size; i++) {
         if (part_table[i] > max) {
-            max = part_table[i];  // 更新最大值
+            max = part_table[i];
         }
     }
     return max;
@@ -661,8 +574,6 @@ void app_main(void)
     for (uint8_t i = 1; i < 33; i++) {
         ESP_LOGI("WAVE INFO", "NUM=%d LEN=%d PAT=%d VOL=%d LOOPSTART=%d LOOPLEN=%d TRK_MAX=%d", i, wave_info[i][0], wave_info[i][1], wave_info[i][2], wave_info[i][3]*2, (wave_info[i][3]*2)+(wave_info[i][4]*2), find_max(NUM_PATTERNS)+1);
     }
-//    xTaskCreate(&keypad_input, "KEYPAD", 2048, NULL, 0, NULL);
-//    xTaskCreate(&input, "INPUT", 2048, NULL, 0, NULL);
     read_part_data(tracker_data, part_table[0], part_buffer[0]);
     read_part_data(tracker_data, part_table[1], part_buffer[1]);
     xTaskCreate(&comp, "Play", 8192, NULL, 5, NULL);

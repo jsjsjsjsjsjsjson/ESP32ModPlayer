@@ -1,32 +1,49 @@
-# _Sample project_
+# ESP32 MOD Player
 
-(See the README.md file in the upper level 'examples' directory for more information about examples.)
+This project is an MOD music player based on ESP32, capable of playing MOD music files. MOD is an 8-bit sample tracker file format used on the Amiga computer.
 
-This is the simplest buildable example. The example is used by command `idf.py create-project`
-that copies the project to user specified path and set it's name. For more information follow the [docs page](https://docs.espressif.com/projects/esp-idf/en/latest/api-guides/build-system.html#start-a-new-project)
+## Features
 
+- Supports playing MOD music files
+- Can display the waveform of MOD music files
+- Supports volume adjustment, frequency adjustment, and more
 
+## Dependencies
 
-## How to use example
-We encourage the users to use the example as a template for the new projects.
-A recommended way is to follow the instructions on a [docs page](https://docs.espressif.com/projects/esp-idf/en/latest/api-guides/build-system.html#start-a-new-project).
+- FreeRTOS
+- pwm_audio
+- ESP-IDF
+- SSD1306
 
-## Example folder contents
+## Usage
 
-The project **sample_project** contains one source file in C language [main.c](main/main.c). The file is located in folder [main](main).
+1. Use the `byte_tool.py` in the `extratools` folder to convert MOD music files into C language arrays.
+2. Include the converted MOD music files in `main.c` for playback. Several songs are already included.
+3. Compile and flash the project onto the ESP32 development board.
+4. Run the project to start playing MOD music.
 
-ESP-IDF projects are built using CMake. The project build configuration is contained in `CMakeLists.txt`
-files that provide set of directives and instructions describing the project's source files and targets
-(executable, library, or both). 
+## Possible Future Features
 
-Below is short explanation of remaining files in the project folder.
+- More effects
+- Reading MOD files from SD card or flash
 
-```
-├── CMakeLists.txt
-├── main
-│   ├── CMakeLists.txt
-│   └── main.c
-└── README.md                  This is the file you are currently reading
-```
-Additionally, the sample project contains Makefile and component.mk files, used for the legacy Make based build system. 
-They are not used or needed when building with CMake and idf.py.
+## Notes
+
+- This project only supports MOD music files in specific formats.
+- Make sure to have the ESP-IDF development environment installed before compiling and flashing the project.
+
+## Contribution
+
+Contributions and suggestions are welcome. You can contribute by submitting issues or pull requests.
+
+## Acknowledgments
+
+Thanks to all contributors and the open-source community for their support of this project.
+
+## References
+
+- [FreeRTOS](https://www.freertos.org/)
+- [ESP-IDF](https://github.com/espressif/esp-idf)
+- [SSD1306](https://github.com/nopnop2002/esp-idf-ssd1306)
+
+Feel free to contact the author for any questions or suggestions.
