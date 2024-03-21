@@ -5,7 +5,7 @@
 #include <driver/gpio.h>
 #include <math.h>
 #include <esp_log.h>
-#include "8bit.h"
+#include "long.h"
 #include "ssd1306.h"
 // #include "font8x8_basic.h"
 #include "vol_table.h"
@@ -24,8 +24,6 @@ bool display_stat = true;
 
 const uint8_t zero[8192] = {0};
 
-float midi_notes[101];
-float samp_notes[101];
 #define CHL_NUM 4
 #define TRACKER_ROW 64
 uint8_t NUM_PATTERNS;
@@ -36,6 +34,7 @@ uint8_t NUM_PATTERNS;
 
 uint16_t part_table[64];
 uint8_t part_point = 2;
+uint8_t tracker_point = 0;
 
 #define BASE_FREQ 8267
 bool dispRedy = false;
@@ -43,27 +42,27 @@ bool dispRedy = false;
 float patch_table[16] = {3546836, 3572516, 3598624, 3624304, 3650840, 3676948, 3703912, 3730876,
                          3347816, 3372212, 3396180, 3421004, 3445828, 3471080, 3495904, 3521584};
 
-void hexToDecimal(uint8_t num, uint8_t *tens, uint8_t *ones) {
+inline void hexToDecimal(uint8_t num, uint8_t *tens, uint8_t *ones) {
     *tens = (num >> 4) & 0x0F;
     *ones = num & 0x0F;
 }
-uint8_t hexToDecimalTens(uint8_t num) {
+inline uint8_t hexToDecimalTens(uint8_t num) {
     return (num >> 4) & 0x0F;
 }
-uint8_t hexToDecimalOnes(uint8_t num) {
+inline uint8_t hexToDecimalOnes(uint8_t num) {
     return num & 0x0F;
 }
-float freq_up(float base_freq, uint8_t n) {
+inline float freq_up(float base_freq, uint8_t n) {
     return base_freq * powf(2.0f, (n / 12.0f));
 }
 // **************************INIT*END****************************
 uint16_t WAVE_RATE = 8287;
 // NOTE COMP START ----------------------------------------------
-float midi_note_frequency(int note) {
+inline float midi_note_frequency(int note) {
     return 440.0 * powf(2.0, (note - 69) / 12.0);
 }
 
-float samp_frequency(int note) {
+inline float samp_frequency(int note) {
     return WAVE_RATE * powf(2.0, (note - 69) / 12.0);
 }
 // NOTE COMP END ------------------------------------------------
@@ -91,7 +90,7 @@ void display() {
         uint8_t volTemp;
         for (uint8_t contr = 0; contr < 2; contr++) {
             ssd1306_set_buffer(&dev, zero);
-            sprintf(ten, "     %2d>%2d", part_point, part_table[part_point]);
+            sprintf(ten, "  %2d %2d>%2d", tracker_point, part_point, part_table[part_point]);
             ssd1306_display_text(&dev, 0, "CH1 CH2 CH3 CH4", 16, false);
             ssd1306_display_text(&dev, 6, ten, 12, false);
             // ssd1306_display_text(&dev, 7, tet, 16, false);
@@ -166,31 +165,35 @@ uint16_t data_index_int[CHL_NUM] = {0};
 uint8_t arpNote[2][4] = {0};
 float arpFreq[3][4];
 int8_t make_data(float freq, uint8_t vole, uint8_t chl, bool isLoop, uint16_t loopStart, uint16_t loopLen, uint32_t smp_start, uint16_t smp_size, uint8_t smp_vol) {
-    // 检查音量或频率是否无效
     if (vole <= 0 || freq < 0) {
-        // 如果音量为非正值或频率为负值，则跳过处理
         return 0;
     }
-    // 更新通道的数据索引
-    data_index_int[chl] = roundf(data_index[chl]);
-    data_index[chl] += freq / SMP_RATE;
-    // 检查是否启用了循环
-    if (isLoop) {
-        // 如果启用了循环，则调整索引
-        if (data_index_int[chl] >= (loopStart + loopLen)) {
-            data_index[chl] = data_index[chl] - data_index_int[chl];
+    // 计算通道数据索引和浮点数部分
+    float data_index_float = data_index[chl];
+    int data_index_int_floor = (int)data_index_float;
+    float frac = data_index_float - data_index_int_floor;
+    // 边界检查和处理
+    if (isLoop && data_index_int_floor >= (loopStart + loopLen)) {
+        data_index[chl] = loopStart;
+    } else if (!isLoop && data_index_int_floor >= smp_size) {
+        vol[chl] = 0;
+        return 0;
+    }
+    // 获取采样值
+    int8_t sample1 = tracker_data[data_index_int_floor + smp_start];
+    int8_t sample2 = tracker_data[data_index_int_floor + 1 + smp_start];
+    // 达到采样末尾时不插值
+    if (data_index_int_floor + 1 >= smp_size) {
+        if (isLoop) {
             data_index[chl] = loopStart;
-        }
-    } else {
-        // 检查是否到达了样本的末尾
-        if (data_index_int[chl] >= smp_size) {
-            // 将音量标记为0并返回
-            vol[chl] = 0;
-            return 0;
+            sample2 = tracker_data[loopStart + 1 + smp_start];
+        } else {
+            return sample1;
         }
     }
-    // 处理音频数据并应用音量调整
-    return (int8_t)roundf((int8_t)tracker_data[data_index_int[chl] + smp_start] * vol_table[vole] * vol_table[smp_vol]);
+    // 更新数据索引
+    data_index[chl] += freq / SMP_RATE;
+    return (int8_t)roundf((sample1 + frac * (sample2 - sample1)) * vol_table[vole] * vol_table[smp_vol]);;
 }
 // AUDIO DATA COMP END ------------------------------------------
 
@@ -210,7 +213,6 @@ uint8_t pushed_key[4];
 int16_t temp;
 uint16_t wave_info[33][5];
 uint32_t wav_ofst[32];
-uint8_t tracker_point = 0;
 
 uint8_t part_buffer_point = 0;
 uint16_t part_buffer[BUFFER_PATTERNS][NUM_ROWS][NUM_CHANNELS][4];
@@ -559,13 +561,10 @@ void read_wave_data(uint8_t (*wave_info)[5], uint8_t* tracker_data, uint8_t** wa
 }
 */
 
-void tick_ctrl() {
-
-}
-
 void app_main(void)
 {
-    xTaskCreatePinnedToCore(&display, "wave_view", 7000, NULL, 4, NULL, 1);
+    xTaskCreatePinnedToCore(&display, "wave_view", 7000, NULL, 3, NULL, 1);
+    // xTaskCreatePinnedToCore(&CPU_Task, "cpu_task", 4096, NULL, 0, NULL, 0);
 /*
     for (int i = 0; i < NUM_PATTERNS; i++) {
         uint8_t* pattern_data = tracker_data + 1084 + i * PATTERN_SIZE;
@@ -579,10 +578,6 @@ void app_main(void)
 //    for (int i = 0; i <= 100; i++) {
 //        midi_notes[i] = midi_note_frequency(i);
 //    }
-    for (int i = 0; i <= 100; i++) {
-        samp_notes[i] = samp_frequency(i);
-        printf("FREQ%d=%f\n", i, samp_notes[i]);
-    }
     for (uint8_t i = 1; i < 33; i++) {
         ESP_LOGI("WAVE INFO", "NUM=%d LEN=%d PAT=%d VOL=%d LOOPSTART=%d LOOPLEN=%d TRK_MAX=%d", i, wave_info[i][0], wave_info[i][1], wave_info[i][2], wave_info[i][3]*2, (wave_info[i][3]*2)+(wave_info[i][4]*2), find_max(NUM_PATTERNS)+1);
     }
@@ -600,5 +595,4 @@ void app_main(void)
         printf("Pattern %d, Row %d, Channel 3: Period=%d, Sample Number=%d, Effect1=%d, Effect2=%d\n",
                debugPart+1, i, part_buffer[debugPart][i][debugChl][0], part_buffer[debugPart][i][debugChl][1], part_buffer[debugPart][i][debugChl][2], part_buffer[debugPart][i][debugChl][3]);
     }
-
 }
