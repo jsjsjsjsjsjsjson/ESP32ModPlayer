@@ -5,7 +5,7 @@
 #include <driver/gpio.h>
 #include <math.h>
 #include <esp_log.h>
-#include "long.h"
+#include "EFXTEST.h"
 #include "ssd1306.h"
 // #include "font8x8_basic.h"
 #include "vol_table.h"
@@ -164,6 +164,8 @@ float data_index[CHL_NUM] = {0};
 uint16_t data_index_int[CHL_NUM] = {0};
 uint8_t arpNote[2][4] = {0};
 float arpFreq[3][4];
+int8_t sample1;
+int8_t sample2;
 int8_t make_data(float freq, uint8_t vole, uint8_t chl, bool isLoop, uint16_t loopStart, uint16_t loopLen, uint32_t smp_start, uint16_t smp_size, uint8_t smp_vol) {
     if (vole <= 0 || freq < 0) {
         return 0;
@@ -180,8 +182,8 @@ int8_t make_data(float freq, uint8_t vole, uint8_t chl, bool isLoop, uint16_t lo
         return 0;
     }
     // 获取采样值
-    int8_t sample1 = tracker_data[data_index_int_floor + smp_start];
-    int8_t sample2 = tracker_data[data_index_int_floor + 1 + smp_start];
+    sample1 = tracker_data[data_index_int_floor + smp_start];
+    sample2 = tracker_data[data_index_int_floor + 1 + smp_start];
     // 达到采样末尾时不插值
     if (data_index_int_floor + 1 >= smp_size) {
         if (isLoop) {
@@ -200,7 +202,7 @@ int8_t make_data(float freq, uint8_t vole, uint8_t chl, bool isLoop, uint16_t lo
 uint8_t btm_size = 0;
 uint8_t push_stat[4];
 uint8_t tick_time = 0;
-uint8_t tick_speed = 0;
+uint8_t tick_speed = 6;
 
 float frq[CHL_NUM] = {0};
 
@@ -232,6 +234,11 @@ bool enbSlideUp[4] = {false};
 uint8_t SlideUp[4] = {false};
 bool enbSlideDown[4] = {false};
 uint8_t SlideDown[4] = {false};
+bool enbVibrato[4] = {false};
+uint8_t VibratoSpeed[4];
+uint8_t VibratoDepth[4];
+uint8_t VibratoPos[4] = {32};
+int VibratoItem[4] = {0};
 uint16_t Mtick = 0;
 uint16_t TICK_NUL = roundf(SMP_RATE / (125 * 0.4));
 bool skipToNextPart = false;
@@ -255,11 +262,19 @@ void comp() {
         // for (uint8_t p = 0; p < 4; p++) {
             for(uint16_t i = 0; i < BUFF_SIZE; i++) {
                 for(uint8_t chl = 0; chl < 4; chl++) {
-                    if (wave_info[smp_num[chl]][4] > 2) {
-                        buffer_ch[chl][i] = make_data(patch_table[wave_info[smp_num[chl]][1]] / period[chl], vol[chl], chl, true, wave_info[smp_num[chl]][3]*2, wave_info[smp_num[chl]][4]*2, wav_ofst[smp_num[chl]], wave_info[smp_num[chl]][0], wave_info[smp_num[chl]][2]);
-                    } else {
-                        buffer_ch[chl][i] = make_data(patch_table[wave_info[smp_num[chl]][1]] / period[chl], vol[chl], chl, false, 0, 0, wav_ofst[smp_num[chl]], wave_info[smp_num[chl]][0], wave_info[smp_num[chl]][2]);
-                    }
+                    // if (enbVibrato[chl]) {
+                        if (wave_info[smp_num[chl]][4] > 2) {
+                            buffer_ch[chl][i] = make_data(patch_table[wave_info[smp_num[chl]][1]] / (period[chl] + VibratoItem[chl]), vol[chl], chl, true, wave_info[smp_num[chl]][3]*2, wave_info[smp_num[chl]][4]*2, wav_ofst[smp_num[chl]], wave_info[smp_num[chl]][0], wave_info[smp_num[chl]][2]);
+                        } else {
+                            buffer_ch[chl][i] = make_data(patch_table[wave_info[smp_num[chl]][1]] / (period[chl] + VibratoItem[chl]), vol[chl], chl, false, 0, 0, wav_ofst[smp_num[chl]], wave_info[smp_num[chl]][0], wave_info[smp_num[chl]][2]);
+                        }
+                    // } else {
+                    //    if (wave_info[smp_num[chl]][4] > 2) {
+                    //        buffer_ch[chl][i] = make_data(patch_table[wave_info[smp_num[chl]][1]] / (period[chl] + VibratoItem[chl]), vol[chl], chl, true, wave_info[smp_num[chl]][3]*2, wave_info[smp_num[chl]][4]*2, wav_ofst[smp_num[chl]], wave_info[smp_num[chl]][0], wave_info[smp_num[chl]][2]);
+                    //    } else {
+                    //        buffer_ch[chl][i] = make_data(patch_table[wave_info[smp_num[chl]][1]] / (period[chl] + VibratoItem[chl]), vol[chl], chl, false, 0, 0, wav_ofst[smp_num[chl]], wave_info[smp_num[chl]][0], wave_info[smp_num[chl]][2]);
+                    //    }
+                    //}
                 }
                 buffer[i] = (buffer_ch[0][i] 
                                 + buffer_ch[1][i] 
@@ -298,6 +313,11 @@ void comp() {
                                     vol[chl] = 0;
                                 }
                                 // printf("%d TICK VOL DOWN %d %d\n", chl, vol[chl], volDown[chl]);
+                            }
+                            if (enbVibrato[chl]) {
+                                VibratoItem[chl] = roundf((sine_table[VibratoPos[chl]] * VibratoDepth[chl]) / 128.0f);
+                                VibratoPos[chl] += VibratoSpeed[chl];
+                                VibratoPos[chl] = VibratoPos[chl] & 63;
                             }
                             if (enbPortTone[chl]) {
                                 if (portToneSource[chl] > portToneTarget[chl]) {
@@ -392,6 +412,17 @@ void comp() {
                                     enbSlideDown[chl] = true;
                                 } else {
                                     enbSlideDown[chl] = false;
+                                }
+                                if (part_buffer[part_buffer_point][tracker_point][chl][2] == 4) {
+                                    enbVibrato[chl] = true;
+                                    if (part_buffer[part_buffer_point][tracker_point][chl][3]) {
+                                        VibratoSpeed[chl] = hexToDecimalTens(part_buffer[part_buffer_point][tracker_point][chl][3]);
+                                        VibratoDepth[chl] = hexToDecimalOnes(part_buffer[part_buffer_point][tracker_point][chl][3]);
+                                        printf("VIBRATO SPD %d DPH %d\n", VibratoSpeed[chl], VibratoDepth[chl]);
+                                    }
+                                } else {
+                                    enbVibrato[chl] = false;
+                                    VibratoItem[chl] = 0;
                                 }
                                 if (part_buffer[part_buffer_point][tracker_point][chl][2] == 12) {
                                     vol[chl] = part_buffer[part_buffer_point][tracker_point][chl][3];
