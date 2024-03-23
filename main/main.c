@@ -6,6 +6,7 @@
 #include <math.h>
 #include <esp_log.h>
 #include "long.h"
+// #include "EFXTEST.h"
 #include "ssd1306.h"
 // #include "font8x8_basic.h"
 #include "vol_table.h"
@@ -96,7 +97,7 @@ void display() {
             ssd1306_display_text(&dev, 6, ten, 12, false);
             // ssd1306_display_text(&dev, 7, tet, 16, false);
             for (x = 0; x < 32; x++) {
-                _ssd1306_pixel(&dev, x, roundf((buffer_ch[0][(x + (contr * 128)) * 2]) / 4) + 32, false);
+                // _ssd1306_pixel(&dev, x, roundf((buffer_ch[0][(x + (contr * 128)) * 2]) / 4) + 32, false);
                 _ssd1306_pixel(&dev, x, (uint8_t)roundf(period[0] * (64.0f / 743.0f))%64, false);
                 // printf("DISPLAY %d\n", roundf(period[0] * (64.0f / 743.0f)));
                 volTemp = (vol[0]/2) % 64;
@@ -105,7 +106,7 @@ void display() {
                 }
             }
             for (x = 32; x < 64; x++) {
-                _ssd1306_pixel(&dev, x, roundf((buffer_ch[1][((x-32) + (contr * 128)) * 2]) / 4) + 32, false);
+                // _ssd1306_pixel(&dev, x, roundf((buffer_ch[1][((x-32) + (contr * 128)) * 2]) / 4) + 32, false);
                 _ssd1306_pixel(&dev, x, (uint8_t)roundf(period[1] * (64.0f / 743.0f))%64, false);
                 volTemp = vol[1]/2;
                 for (uint8_t i = 58; i < 64; i++) {
@@ -113,7 +114,7 @@ void display() {
                 }
             }
             for (x = 64; x < 96; x++) {
-                _ssd1306_pixel(&dev, x, roundf((buffer_ch[2][((x-64) + (contr * 128)) * 2]) / 4) + 32, false);
+                // _ssd1306_pixel(&dev, x, roundf((buffer_ch[2][((x-64) + (contr * 128)) * 2]) / 4) + 32, false);
                 _ssd1306_pixel(&dev, x, (uint8_t)roundf(period[2] * (64.0f / 743.0f))%64, false);
                 volTemp = vol[2]/2;
                 for (uint8_t i = 58; i < 64; i++) {
@@ -121,7 +122,7 @@ void display() {
                 }
             }
             for (x = 96; x < 128; x++) {
-                _ssd1306_pixel(&dev, x, roundf((buffer_ch[3][((x-96) + (contr * 128)) * 2]) / 4) + 32, false);
+                // _ssd1306_pixel(&dev, x, roundf((buffer_ch[3][((x-96) + (contr * 128)) * 2]) / 4) + 32, false);
                 _ssd1306_pixel(&dev, x, (uint8_t)roundf(period[3] * (64.0f / 743.0f))%64, false);
                 volTemp = vol[3]/2;
                 for (uint8_t i = 58; i < 64; i++) {
@@ -129,7 +130,7 @@ void display() {
                 }
             }
             ssd1306_show_buffer(&dev);
-            vTaskDelay(1);
+            vTaskDelay(2);
         }
     }
 }
@@ -323,8 +324,7 @@ void comp() {
                                 TremoloPos[chl] += TremoloSpeed[chl];
                                 TremoloPos[chl] = TremoloPos[chl] & 63;
                             } else {
-                                VibratoPos[chl] = 0;
-                                VibratoItem[chl] = 0;
+                                TremoloPos[chl] = 0;
                             }
                             if (enbPortTone[chl]) {
                                 if (portToneSource[chl] > portToneTarget[chl]) {
@@ -435,7 +435,7 @@ void comp() {
                                         if (hexToDecimalOnes(part_buffer[part_buffer_point][tracker_point][chl][3])) {
                                             VibratoDepth[chl] = hexToDecimalOnes(part_buffer[part_buffer_point][tracker_point][chl][3]);
                                         }
-                                        printf("VIBRATO SPD %d DPH %d\n", VibratoSpeed[chl], VibratoDepth[chl]);
+                                        // printf("VIBRATO SPD %d DPH %d\n", VibratoSpeed[chl], VibratoDepth[chl]);
                                     }
                                 } else {
                                     enbVibrato[chl] = false;
@@ -534,7 +534,7 @@ void comp() {
                 }
             }
         // }
-        // vTaskDelay(1);
+        vTaskDelay(1);
         pwm_audio_write(&buffer, BUFF_SIZE, &wrin, portMAX_DELAY);
         //ESP_LOGI("STEP_SIZE", "%d %d", wrin, BUFF_SIZE);
     }
@@ -628,10 +628,32 @@ void read_wave_data(uint8_t (*wave_info)[5], uint8_t* tracker_data, uint8_t** wa
 }
 */
 
+void Cpu_task(void const * argument)
+{
+  /* USER CODE BEGIN Cpu_task */
+    uint8_t CPU_RunInfo[512];
+  /* Infinite loop */
+  for(;;)
+  {
+      memset(CPU_RunInfo,0,512);
+      vTaskList((char *)&CPU_RunInfo); //获取任务运行时间信息
+      printf("---------------------------------------------\r\n");
+      printf("任务名       任务状态     优先级     剩余栈     任务序号\r\n");
+      printf("%s", CPU_RunInfo);
+      printf("---------------------------------------------\r\n");
+      memset(CPU_RunInfo,0,512);
+      vTaskGetRunTimeStats((char *)&CPU_RunInfo);
+      printf("任务名         运行计数     使用率\r\n");
+      printf("%s", CPU_RunInfo);
+      printf("---------------------------------------------\r\n\n");
+      vTaskDelay(200); /* 延时500个tick */
+
+  }
+  /* USER CODE END Cpu_task */
+}
 void app_main(void)
 {
-    xTaskCreate(&display, "wave_view", 7000, NULL, 2, NULL);
-    // xTaskCreatePinnedToCore(&CPU_Task, "cpu_task", 4096, NULL, 0, NULL, 0);
+    // xTaskCreatePinnedToCore(&Cpu_task, "cpu_task", 4096, NULL, 0, NULL, 0);
 /*
     for (int i = 0; i < NUM_PATTERNS; i++) {
         uint8_t* pattern_data = tracker_data + 1084 + i * PATTERN_SIZE;
@@ -650,8 +672,10 @@ void app_main(void)
     }
     read_part_data(tracker_data, part_table[0], part_buffer[0]);
     read_part_data(tracker_data, part_table[1], part_buffer[1]);
-    xTaskCreate(&comp, "Play", 8192, NULL, 5, NULL);
+    xTaskCreate(&comp, "Play", 10240, NULL, 5, NULL);
     xTaskCreate(&load, "Load", 8192, NULL, 0, NULL);
+    vTaskDelay(32);
+    xTaskCreatePinnedToCore(&display, "wave_view", 8192, NULL, 1, NULL, 0);
     uint8_t debugPart = 5;
     uint8_t debugChl = 0;
     for (uint8_t i = 0; i < NUM_ROWS; i++) {
