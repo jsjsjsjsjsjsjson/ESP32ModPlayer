@@ -5,14 +5,14 @@
 #include <driver/gpio.h>
 #include <math.h>
 #include <esp_log.h>
-#include "approach.h"
+#include "scurry.h"
 // #include "EFXTEST.h"
 #include "ssd1306.h"
 // #include "font8x8_basic.h"
 #include "vol_table.h"
 #include <string.h>
 
-#define BUFF_SIZE 4096
+#define BUFF_SIZE 2048
 #define SMP_RATE 44100
 #define SMP_BIT 8
 int8_t buffer_ch[4][BUFF_SIZE];
@@ -291,14 +291,7 @@ void comp() {
                     }
 
                     if (tick_time != tick_speed) {
-                        if (enbSlideUp[chl]) {
-                            period[chl] -= SlideUp[chl];
-                            // printf("SLIDE UP - %d = %d\n", SlideUp[chl], period[chl]);
-                        }
-                        if (enbSlideDown[chl]) {
-                            period[chl] += SlideDown[chl];
-                            // printf("SLIDE DOWN + %d = %d\n", SlideDown[chl], period[chl]);
-                        }
+                        period[chl] += enbSlideDown[chl] ? SlideDown[chl] : (enbSlideUp[chl] ? -SlideUp[chl] : 0);
                         vol[chl] += (volUp[chl] - volDown[chl]);
                         vol[chl] = (vol[chl] > 63) ? 63 : (vol[chl] < 1) ? 0 : vol[chl];
 
@@ -418,7 +411,7 @@ void comp() {
                                     if (hexToDecimalOnes(part_buffer[part_buffer_point][tracker_point][chl][3])) {
                                         VibratoDepth[chl] = hexToDecimalOnes(part_buffer[part_buffer_point][tracker_point][chl][3]);
                                     }
-                                    // printf("VIBRATO SPD %d DPH %d\n", VibratoSpeed[chl], VibratoDepth[chl]);
+                                    printf("VIBRATO SPD %d DPH %d\n", VibratoSpeed[chl], VibratoDepth[chl]);
                                 }
                             } else {
                                 enbVibrato[chl] = false;
@@ -476,7 +469,7 @@ void comp() {
                                     arpFreq[0][chl] = patch_table[wave_info[smp_num[chl]][1]] / period[chl];
                                     arpFreq[1][chl] = freq_up(arpFreq[0][chl], arpNote[0][chl]);
                                     arpFreq[2][chl] = freq_up(arpFreq[0][chl], arpNote[1][chl]);
-                                    printf("ARP CTRL %d %d\n", arpNote[0][chl], arpNote[1][chl]);
+                                    // printf("ARP CTRL %d %d\n", arpNote[0][chl], arpNote[1][chl]);
                                 } else {
                                     arpFreq[1][chl] = freq_up(arpFreq[0][chl], arpNote[0][chl]);
                                     arpFreq[2][chl] = freq_up(arpFreq[0][chl], arpNote[1][chl]);
@@ -612,7 +605,7 @@ void read_wave_data(uint8_t (*wave_info)[5], uint8_t* tracker_data, uint8_t** wa
 
 void app_main(void)
 {
-    xTaskCreate(&display, "wave_view", 7000, NULL, 3, NULL);
+    xTaskCreate(&display, "wave_view", 7000, NULL, 4, NULL);
     // xTaskCreatePinnedToCore(&Cpu_task, "cpu_task", 4096, NULL, 0, NULL, 0);
 /*
     for (int i = 0; i < NUM_PATTERNS; i++) {
