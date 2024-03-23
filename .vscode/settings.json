@@ -43,7 +43,10 @@
     "long.h": "c",
     "approach.h": "c",
     "compare": "c",
-    "string.h": "c"
+    "string.h": "c",
+    "tracker_data1.h": "c",
+    "limits": "c",
+    "type_traits": "c"
   },
   "cmake.configureOnOpen": true,
   "idf.port": "/dev/cu.wchusbserial56280085231"
