@@ -5,15 +5,15 @@
 #include <driver/gpio.h>
 #include <math.h>
 #include <esp_log.h>
-// #include "pulse_of_life_xl.h"
-#include "8bit.h"
+#include "pulse_of_life_xl.h"
+// #include "long.h"
 // #include "EFXTEST.h"
 #include "ssd1306.h"
 // #include "font8x8_basic.h"
 #include "vol_table.h"
 #include <string.h>
 
-#define BUFF_SIZE 4096
+#define BUFF_SIZE 2048
 #define SMP_RATE 44100
 #define SMP_BIT 8
 int8_t buffer_ch[4][BUFF_SIZE];
@@ -34,7 +34,7 @@ uint8_t NUM_PATTERNS;
 #define NUM_CHANNELS 4
 #define PATTERN_SIZE (NUM_ROWS * NUM_CHANNELS * 4)
 
-uint16_t part_table[64];
+uint8_t part_table[128];
 uint8_t part_point = 2;
 uint8_t tracker_point = 0;
 
@@ -264,9 +264,13 @@ void comp() {
     pwm_audio_set_param(SMP_RATE, SMP_BIT, 1);
     pwm_audio_start();
     // pwm_audio_set_volume(0);
+    pwm_audio_write(&buffer, BUFF_SIZE, &wrin, portMAX_DELAY);
     vTaskDelay(128);
     dispRedy = true;
     uint8_t chl;
+    bool enbRetrigger[4] = {false};
+    uint8_t RetriggerPos[4] = {0};
+    uint8_t RetriggerConfig[4] = {0};
     while(true) {
         for(uint16_t i = 0; i < BUFF_SIZE; i++) {
             for(chl = 0; chl < 4; chl++) {
@@ -433,6 +437,12 @@ void comp() {
                                 uint8_t decimalTens = hexToDecimalTens(part_buffer[part_buffer_point][tracker_point][chl][3]);
                                 vol[chl] += (decimalTens == 10) ? hexToDecimalOnes(part_buffer[part_buffer_point][tracker_point][chl][3]) : ((decimalTens == 11) ? -hexToDecimalOnes(part_buffer[part_buffer_point][tracker_point][chl][3]) : 0);
                                 vol[chl] = (vol[chl] > 64) ? 64 : ((vol[chl] < 1) ? 0 : vol[chl]);
+                                if (decimalTens == 9) {
+                                    enbRetrigger[chl] = true;
+                                    printf("RETRIGGER %d\n", hexToDecimalOnes(part_buffer[part_buffer_point][tracker_point][chl][3]));
+                                } else {
+                                    enbRetrigger[chl] = false;
+                                }
                                 // printf("LINE VOL %s TO %d\n", (decimalTens == 10) ? "UP" : ((decimalTens == 11) ? "DOWN" : "UNCHANGED"), vol[chl]);
                             }
 
