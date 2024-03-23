@@ -14,7 +14,7 @@ def file_to_c_uint8_array(input_file, output_file, array_name):
         f.write("\n};\n")
 
 if __name__ == "__main__":
-    input_file = "EFXTEST.mod"
-    output_file = "EFXTEST.h"
+    input_file = "pulse_of_life_xl.mod"
+    output_file = "pulse_of_life_xl.h"
     array_name = "tracker_data"
     file_to_c_uint8_array(input_file, output_file, array_name)
