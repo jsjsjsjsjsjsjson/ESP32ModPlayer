@@ -1,7 +1,8 @@
 #include <stdio.h>
 #include <freertos/FreeRTOS.h>
 #include <freertos/task.h>
-#include <pwm_audio.h>
+// #include <pwm_audio.h>
+#include <dac_audio.h>
 #include <driver/gpio.h>
 #include <math.h>
 #include <esp_log.h>
@@ -205,7 +206,7 @@ int8_t make_data(float freq, uint8_t vole, uint8_t chl, bool isLoop, uint16_t lo
         }
     }
     // 更新数据索引
-    data_index[chl] += freq / SMP_RATE;
+    data_index[chl] += freq / (SMP_RATE*2);
     return (int8_t)roundf((sample1 + frac * (sample2 - sample1)) * vol_table[vole] * vol_table[smp_vol]);;
 }
 // AUDIO DATA COMP END ------------------------------------------
@@ -252,9 +253,10 @@ void comp() {
     int VibratoItem[4] = {0};
     uint16_t Mtick = 0;
     uint32_t frq[4] = {0};
-    uint16_t TICK_NUL = roundf(SMP_RATE / (125 * 0.4));
+    uint16_t TICK_NUL = roundf(SMP_RATE*2 / (125 * 0.4));
+    /*
     pwm_audio_config_t pwm_audio_config = {
-        .gpio_num_left = GPIO_NUM_12,
+        .gpio_num_left = GPIO_NUM_26,
         .ledc_channel_left = LEDC_CHANNEL_0,
         .ledc_timer_sel = LEDC_TIMER_0,
         .duty_resolution = LEDC_TIMER_8_BIT,
@@ -265,6 +267,20 @@ void comp() {
     pwm_audio_start();
     // pwm_audio_set_volume(0);
     pwm_audio_write(&buffer, BUFF_SIZE, &wrin, portMAX_DELAY);
+    */
+    dac_audio_config_t dac_audio_config = {
+        .i2s_num = I2S_NUM_0,
+        .sample_rate = SMP_RATE,
+        .bits_per_sample = SMP_BIT,
+        .dac_mode = I2S_DAC_CHANNEL_LEFT_EN,
+        .dma_buf_count = 4,
+        .dma_buf_len = 256,
+        .max_data_size = BUFF_SIZE*2
+    };
+    dac_audio_init(&dac_audio_config);
+    dac_audio_set_param(SMP_RATE, SMP_BIT, 1);
+    dac_audio_start();
+    dac_audio_write(&buffer, BUFF_SIZE, &wrin, portMAX_DELAY);
     vTaskDelay(128);
     dispRedy = true;
     uint8_t chl;
@@ -451,7 +467,7 @@ void comp() {
                                     tick_speed = part_buffer[part_buffer_point][tracker_point][chl][3];
                                     // printf("SPD SET TO %d\n", tick_speed);
                                 } else {
-                                    TICK_NUL = roundf(SMP_RATE / (part_buffer[part_buffer_point][tracker_point][chl][3] * 0.4));
+                                    TICK_NUL = roundf((SMP_RATE*2) / (part_buffer[part_buffer_point][tracker_point][chl][3] * 0.4));
                                     // printf("MTICK SET TO %d\n", TICK_NUL);
                                 }
                             }
@@ -508,7 +524,7 @@ void comp() {
                 }
             }
         }
-        pwm_audio_write(&buffer, BUFF_SIZE, &wrin, portMAX_DELAY);
+        dac_audio_write(&buffer, BUFF_SIZE, &wrin, portMAX_DELAY);
         // vTaskDelay(1);
         //ESP_LOGI("STEP_SIZE", "%d %d", wrin, BUFF_SIZE);
     }
