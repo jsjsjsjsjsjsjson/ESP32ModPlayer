@@ -6,8 +6,8 @@
 #include <driver/gpio.h>
 #include <math.h>
 #include <esp_log.h>
-#include "pulse_of_life_xl.h"
-// #include "secret_of_a_pyramid.h"
+// #include "pulse_of_life_xl.h"
+#include "long.h"
 // #include "EFXTEST.h"
 #include "ssd1306.h"
 // #include "font8x8_basic.h"
@@ -207,7 +207,7 @@ int8_t make_data(float freq, uint8_t vole, uint8_t chl, bool isLoop, uint16_t lo
     }
     // 更新数据索引
     data_index[chl] += freq / (SMP_RATE*2);
-    return (int8_t)roundf((sample1 + frac * (sample2 - sample1)) * vol_table[vole] * vol_table[smp_vol]);;
+    return (int8_t)roundf((sample1 + frac * (sample2 - sample1)) * vol_table[vole] * vol_table[smp_vol]);
 }
 // AUDIO DATA COMP END ------------------------------------------
 
@@ -255,6 +255,7 @@ void comp() {
     uint32_t frq[4] = {0};
     uint16_t TICK_NUL = roundf(SMP_RATE*2 / (125 * 0.4));
     uint8_t volTemp[4];
+    uint16_t OfstCfg[4];
     /*
     pwm_audio_config_t pwm_audio_config = {
         .gpio_num_left = GPIO_NUM_26,
@@ -286,7 +287,7 @@ void comp() {
     dispRedy = true;
     uint8_t chl;
     bool enbRetrigger[4] = {false};
-    uint8_t RetriggerPos[4] = {0};
+    // uint8_t RetriggerPos[4] = {1};
     uint8_t RetriggerConfig[4] = {0};
     while(true) {
         for(uint16_t i = 0; i < BUFF_SIZE; i++) {
@@ -308,7 +309,19 @@ void comp() {
                 arp_p++;
                 if (tick_time != tick_speed) {
                     for(chl = 0; chl < 4; chl++) {
-                        period[chl] += enbSlideDown[chl] ? SlideDown[chl] : (enbSlideUp[chl] ? -SlideUp[chl] : 0);
+                        // period[chl] += enbSlideDown[chl] ? SlideDown[chl] : (enbSlideUp[chl] ? -SlideUp[chl] : 0);
+                        if (enbSlideUp[chl]) {
+                            // printf("SLIDE UP %d", period[chl]);
+                            period[chl] -= SlideUp[chl];
+                            enbPortTone[chl] = false;
+                            // printf(" - %d = %d\n", SlideUp[chl], period[chl]);
+                        }
+                        if (enbSlideDown[chl]) {
+                            // printf("SLIDE DOWN %d", period[chl]);
+                            period[chl] += SlideDown[chl];
+                            enbPortTone[chl] = false;
+                            // printf(" + %d = %d\n", SlideDown[chl], period[chl]);
+                        }
                         vol[chl] += (volUp[chl] - volDown[chl]);
                         vol[chl] = (vol[chl] > 63) ? 63 : (vol[chl] < 1) ? 0 : vol[chl];
 
@@ -413,6 +426,7 @@ void comp() {
 
                         if (part_buffer[part_buffer_point][tracker_point][chl][2] == 2) {
                             SlideDown[chl] = part_buffer[part_buffer_point][tracker_point][chl][3];
+                            // printf("SET SLIDEDOWN IS %d\n", part_buffer[part_buffer_point][tracker_point][chl][3]);
                             enbSlideDown[chl] = true;
                         } else {
                             enbSlideDown[chl] = false;
@@ -447,6 +461,11 @@ void comp() {
                             enbTremolo[chl] = false;
                         }
 
+                        if (part_buffer[part_buffer_point][tracker_point][chl][2] == 9) {
+                            OfstCfg[chl] = part_buffer[part_buffer_point][tracker_point][chl][3] << 8;
+                            printf("SMP OFST %d\n", OfstCfg[chl]);
+                        }
+
                         if (part_buffer[part_buffer_point][tracker_point][chl][2] == 12) {
                             vol[chl] = part_buffer[part_buffer_point][tracker_point][chl][3];
                         }
@@ -460,7 +479,6 @@ void comp() {
                                 RetriggerConfig[chl] = hexToDecimalOnes(part_buffer[part_buffer_point][tracker_point][chl][3]);
                                 printf("RETRIGGER %d\n", RetriggerConfig[chl]);
                                 volTemp[chl] = vol[chl];
-                                RetriggerPos[chl] = 0;
                             }
                             // printf("LINE VOL %s TO %d\n", (decimalTens == 10) ? "UP" : ((decimalTens == 11) ? "DOWN" : "UNCHANGED"), vol[chl]);
                         }
@@ -522,15 +540,17 @@ void comp() {
                 for (chl = 0; chl < 4; chl++) {
                     frq[chl] = patch_table[wave_info[smp_num[chl]][1]] / (period[chl] + VibratoItem[chl]);
                     if (enbRetrigger[chl]) {
-                        RetriggerPos[chl]++;
-                        if (RetriggerPos[chl] >= RetriggerConfig[chl]) {
+                        // printf("RETPOS %d\n", RetriggerPos[chl]);
+                        // if (RetriggerPos[chl] > RetriggerConfig[chl]) {
+                        if (!(tick_time % RetriggerConfig[chl])) {
                             // printf("EXEC RET %d\n", RetriggerPos[chl]);
-                            RetriggerPos[chl] = 0;
                             data_index[chl] = 0;
                             vol[chl] = volTemp[chl];
                         }
-                    } else {
-                        RetriggerPos[chl] = 0;
+                    }
+                    if (OfstCfg[chl]) {
+                        data_index[chl] = OfstCfg[chl];
+                        OfstCfg[chl] = 0;
                     }
                     if (arp_p > 2) {arp_p = 0;}
                     if (enbArp[chl]) {
@@ -635,7 +655,7 @@ void read_wave_data(uint8_t (*wave_info)[5], uint8_t* tracker_data, uint8_t** wa
 
 void app_main(void)
 {
-    xTaskCreate(&display, "wave_view", 7000, NULL, 4, NULL);
+    xTaskCreatePinnedToCore(&display, "wave_view", 7000, NULL, 4, NULL, 0);
     // xTaskCreatePinnedToCore(&Cpu_task, "cpu_task", 4096, NULL, 0, NULL, 0);
 /*
     for (int i = 0; i < NUM_PATTERNS; i++) {
@@ -656,7 +676,7 @@ void app_main(void)
     read_part_data(tracker_data, part_table[0], part_buffer[0]);
     read_part_data(tracker_data, part_table[1], part_buffer[1]);
     xTaskCreate(&comp, "Play", 8200, NULL, 5, NULL);
-    xTaskCreate(&load, "Load", 8192, NULL, 0, NULL);
+    xTaskCreatePinnedToCore(&load, "Load", 8192, NULL, 0, NULL, 0);
     vTaskDelay(32);
     uint8_t debugPart = 5;
     uint8_t debugChl = 0;
