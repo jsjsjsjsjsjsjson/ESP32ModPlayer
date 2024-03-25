@@ -6,8 +6,8 @@
 #include <driver/gpio.h>
 #include <math.h>
 #include <esp_log.h>
-// #include "pulse_of_life_xl.h"
-#include "long.h"
+// #include "scurry.h"
+#include "justice_96_remix.h"
 // #include "EFXTEST.h"
 #include "ssd1306.h"
 // #include "font8x8_basic.h"
@@ -66,6 +66,20 @@ inline int clamp(int value, int min, int max) {
     else
         return value;
 }
+float lmt = 0;
+uint16_t lmtP = 0;
+float comper = 1;
+
+void limit(float a) {
+    lmt += 2 + (a > 0 ? a : -a) * 14 / 512.0f;
+    lmtP++;
+    if (lmtP >= 4096) {
+        comper = lmt / 4096;
+        // printf("COMPER %f\n", comper);
+        lmt = 0;
+        lmtP = 0;
+    }
+}
 // **************************INIT*END****************************
 uint16_t WAVE_RATE = 8287;
 // NOTE COMP START ----------------------------------------------
@@ -78,9 +92,17 @@ inline float samp_frequency(int note) {
 }
 // NOTE COMP END ------------------------------------------------
 
-char ten[16];
+char ten[28];
 int8_t vol[CHL_NUM] = {0};
 int16_t period[4] = {1};
+float data_index[CHL_NUM] = {0};
+uint16_t data_index_int[CHL_NUM] = {0};
+uint8_t smp_num[CHL_NUM] = {0};
+
+int16_t temp;
+uint16_t wave_info[33][5];
+uint32_t wav_ofst[32];
+
 // UI START -----------------------------------------------------
 void display() {
     SSD1306_t dev;
@@ -100,17 +122,23 @@ void display() {
     for (;;) {
         uint8_t x;
         uint8_t volTemp;
+        uint8_t addr[4];
         for (uint8_t contr = 0; contr < 4; contr++) {
             ssd1306_set_buffer(&dev, zero);
-            sprintf(ten, "  %2d %2d>%2d", tracker_point, part_point, part_table[part_point]);
-            ssd1306_display_text(&dev, 0, "CH1 CH2 CH3 CH4", 16, false);
-            ssd1306_display_text(&dev, 6, ten, 12, false);
+            sprintf(ten, "  %2d %2d>%2d %.3f", tracker_point, part_point, part_table[part_point], comper);
+            addr[0] = data_index[0] * (32.0f / wave_info[smp_num[0]][0]);
+            addr[1] = data_index[1] * (32.0f / wave_info[smp_num[1]][0]);
+            addr[2] = data_index[2] * (32.0f / wave_info[smp_num[2]][0]);
+            addr[3] = data_index[3] * (32.0f / wave_info[smp_num[3]][0]);
             // ssd1306_display_text(&dev, 7, tet, 16, false);
+            ssd1306_display_text(&dev, 0, "CH1 CH2 CH3 CH4", 16, false);
+            ssd1306_display_text(&dev, 6, ten, 16, false);
             for (x = 0; x < 32; x++) {
                 _ssd1306_pixel(&dev, x, ((buffer_ch[0][(x + (contr * 128)) * 2]) / 4) + 32, false);
                 _ssd1306_pixel(&dev, x, (uint8_t)(period[0] * (64.0f / 743.0f))%64, false);
                 // printf("DISPLAY %d\n", roundf(period[0] * (64.0f / 743.0f)));
                 volTemp = (vol[0]/2) % 64;
+                _ssd1306_line(&dev, addr[0], 8, addr[0], 47, false);
                 for (uint8_t i = 58; i < 64; i++) {
                     _ssd1306_line(&dev, 0, i, volTemp, i, false);
                 }
@@ -119,6 +147,7 @@ void display() {
                 _ssd1306_pixel(&dev, x, ((buffer_ch[1][((x-32) + (contr * 128)) * 2]) / 4) + 32, false);
                 _ssd1306_pixel(&dev, x, (uint8_t)(period[1] * (64.0f / 743.0f))%64, false);
                 volTemp = vol[1]/2;
+                _ssd1306_line(&dev, addr[1]+32, 8, addr[1]+32, 47, false);
                 for (uint8_t i = 58; i < 64; i++) {
                     _ssd1306_line(&dev, 31, i, volTemp+31, i, false);
                 }
@@ -127,6 +156,7 @@ void display() {
                 _ssd1306_pixel(&dev, x, ((buffer_ch[2][((x-64) + (contr * 128)) * 2]) / 4) + 32, false);
                 _ssd1306_pixel(&dev, x, (uint8_t)(period[2] * (64.0f / 743.0f))%64, false);
                 volTemp = vol[2]/2;
+                _ssd1306_line(&dev, addr[2]+64, 8, addr[2]+64, 47, false);
                 for (uint8_t i = 58; i < 64; i++) {
                     _ssd1306_line(&dev, 63, i, volTemp+63, i, false);
                 }
@@ -135,12 +165,13 @@ void display() {
                 _ssd1306_pixel(&dev, x, ((buffer_ch[3][((x-96) + (contr * 128)) * 2]) / 4) + 32, false);
                 _ssd1306_pixel(&dev, x, (uint8_t)(period[3] * (64.0f / 743.0f))%64, false);
                 volTemp = vol[3]/2;
+                _ssd1306_line(&dev, addr[3]+96, 8, addr[3]+96, 47, false);
                 for (uint8_t i = 58; i < 64; i++) {
                     _ssd1306_line(&dev, 95, i, volTemp+95, i, false);
                 }
             }
             ssd1306_show_buffer(&dev);
-            vTaskDelay(1);
+            // vTaskDelay(1);
         }
     }
 }
@@ -172,8 +203,6 @@ void read_part_data(uint8_t* tracker_data, uint8_t pattern_index, uint16_t part_
 }
 
 // AUDIO DATA COMP START ----------------------------------------
-float data_index[CHL_NUM] = {0};
-uint16_t data_index_int[CHL_NUM] = {0};
 uint8_t arpNote[2][4] = {0};
 float arpFreq[3][4];
 int8_t sample1;
@@ -206,20 +235,15 @@ int8_t make_data(float freq, uint8_t vole, uint8_t chl, bool isLoop, uint16_t lo
         }
     }
     // 更新数据索引
-    data_index[chl] += freq / (SMP_RATE*2);
+    data_index[chl] += freq / (SMP_RATE << 1);
     return (int8_t)roundf((sample1 + frac * (sample2 - sample1)) * vol_table[vole] * vol_table[smp_vol]);
 }
 // AUDIO DATA COMP END ------------------------------------------
 
 // float frq[CHL_NUM] = {0};
 
-int16_t temp;
-uint16_t wave_info[33][5];
-uint32_t wav_ofst[32];
-
 uint8_t part_buffer_point = 0;
 uint16_t part_buffer[BUFFER_PATTERNS][NUM_ROWS][NUM_CHANNELS][4];
-uint8_t smp_num[CHL_NUM] = {0};
 bool loadOk;
 
 bool skipToNextPart = false;
@@ -253,7 +277,7 @@ void comp() {
     int VibratoItem[4] = {0};
     uint16_t Mtick = 0;
     uint32_t frq[4] = {0};
-    uint16_t TICK_NUL = roundf(SMP_RATE*2 / (125 * 0.4));
+    uint16_t TICK_NUL = roundf(SMP_RATE * 2 / (125 * 0.4));
     uint8_t volTemp[4];
     uint16_t OfstCfg[4];
     /*
@@ -277,7 +301,7 @@ void comp() {
         .dac_mode = I2S_DAC_CHANNEL_LEFT_EN,
         .dma_buf_count = 4,
         .dma_buf_len = 256,
-        .max_data_size = BUFF_SIZE*2
+        .max_data_size = BUFF_SIZE << 2
     };
     dac_audio_init(&dac_audio_config);
     dac_audio_set_param(SMP_RATE, SMP_BIT, 1);
@@ -289,6 +313,7 @@ void comp() {
     bool enbRetrigger[4] = {false};
     // uint8_t RetriggerPos[4] = {1};
     uint8_t RetriggerConfig[4] = {0};
+    int16_t audio_temp;
     while(true) {
         for(uint16_t i = 0; i < BUFF_SIZE; i++) {
             for(chl = 0; chl < 4; chl++) {
@@ -298,10 +323,12 @@ void comp() {
                     buffer_ch[chl][i] = make_data(frq[chl], vol[chl], chl, false, 0, 0, wav_ofst[smp_num[chl]], wave_info[smp_num[chl]][0], wave_info[smp_num[chl]][2]);
                 }
             }
-            buffer[i] = (buffer_ch[0][i] 
+            audio_temp = buffer_ch[0][i] 
                             + buffer_ch[1][i] 
                                 + buffer_ch[2][i]
-                                    + buffer_ch[3][i]) / 3;
+                                    + buffer_ch[3][i];
+            limit(audio_temp);
+            buffer[i] = (int8_t)clamp((audio_temp / comper), -127, 126);//limit(audio_temp);
             Mtick++;
             if (Mtick == TICK_NUL) {
                 Mtick = 0;
@@ -488,7 +515,7 @@ void comp() {
                                 tick_speed = part_buffer[part_buffer_point][tracker_point][chl][3];
                                 // printf("SPD SET TO %d\n", tick_speed);
                             } else {
-                                TICK_NUL = roundf((SMP_RATE*2) / (part_buffer[part_buffer_point][tracker_point][chl][3] * 0.4));
+                                TICK_NUL = roundf((SMP_RATE << 1) / (part_buffer[part_buffer_point][tracker_point][chl][3] * 0.4));
                                 // printf("MTICK SET TO %d\n", TICK_NUL);
                             }
                         }
@@ -560,7 +587,7 @@ void comp() {
             }
         }
         dac_audio_write(&buffer, BUFF_SIZE, &wrin, portMAX_DELAY);
-        // vTaskDelay(1);
+        vTaskDelay(1);
         //ESP_LOGI("STEP_SIZE", "%d %d", wrin, BUFF_SIZE);
     }
 }
@@ -655,7 +682,7 @@ void read_wave_data(uint8_t (*wave_info)[5], uint8_t* tracker_data, uint8_t** wa
 
 void app_main(void)
 {
-    xTaskCreatePinnedToCore(&display, "wave_view", 7000, NULL, 4, NULL, 0);
+    xTaskCreate(&display, "wave_view", 7000, NULL, 5, NULL);
     // xTaskCreatePinnedToCore(&Cpu_task, "cpu_task", 4096, NULL, 0, NULL, 0);
 /*
     for (int i = 0; i < NUM_PATTERNS; i++) {
