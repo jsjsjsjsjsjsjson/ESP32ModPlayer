@@ -12,7 +12,7 @@ This project is an MOD music player based on ESP32, capable of playing MOD music
 ## Dependencies
 
 - FreeRTOS
-- pwm_audio
+- dac_audio
 - ESP-IDF
 - SSD1306
 
