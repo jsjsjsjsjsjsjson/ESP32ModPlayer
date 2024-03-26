@@ -47,7 +47,9 @@
     "tracker_data1.h": "c",
     "limits": "c",
     "type_traits": "c",
-    "vol_table.h": "c"
+    "vol_table.h": "c",
+    "8bit.h": "c",
+    "dac_audio.h": "c"
   },
   "cmake.configureOnOpen": true,
   "idf.port": "/dev/cu.wchusbserial56280085231"

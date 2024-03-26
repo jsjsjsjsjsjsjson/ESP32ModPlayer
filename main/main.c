@@ -6,8 +6,8 @@
 #include <driver/gpio.h>
 #include <math.h>
 #include <esp_log.h>
-// #include "scurry.h"
-#include "justice_96_remix.h"
+#include "d-zire_-_native_cry.h"
+// #include "secret_of_a_pyramid.h"
 // #include "EFXTEST.h"
 #include "ssd1306.h"
 // #include "font8x8_basic.h"
@@ -37,7 +37,7 @@ uint8_t NUM_PATTERNS;
 
 uint8_t part_table[128];
 uint8_t part_point = 2;
-uint8_t tracker_point = 0;
+int8_t tracker_point = 0;
 
 #define BASE_FREQ 8267
 bool dispRedy = false;
@@ -71,11 +71,10 @@ uint16_t lmtP = 0;
 float comper = 1;
 
 void limit(float a) {
-    lmt += 2 + (a > 0 ? a : -a) * 14 / 512.0f;
+    lmt += 2 + (a > 0 ? a : -a) * 15 / 512.0f;
     lmtP++;
+    comper = lmt / lmtP;
     if (lmtP >= 4096) {
-        comper = lmt / 4096;
-        // printf("COMPER %f\n", comper);
         lmt = 0;
         lmtP = 0;
     }
@@ -248,6 +247,24 @@ bool loadOk;
 
 bool skipToNextPart = false;
 uint8_t skipToAnyPart = false;
+
+#define DELAY_LENGTH 6144
+#define DECAY_FACTOR 0.45f
+
+int8_t delay_buffer[DELAY_LENGTH] = {0};
+uint32_t delay_index = 0;
+
+void apply_delay(int8_t *buffer, uint16_t buf_size) {
+    int8_t delayed_audio;
+
+    for(uint16_t i = 0; i < buf_size; i++) {
+        delayed_audio = delay_buffer[delay_index];
+        buffer[i] += delayed_audio;
+        delay_buffer[delay_index] = (int8_t)(buffer[i] * DECAY_FACTOR);
+        delay_index = (delay_index + 1) % DELAY_LENGTH;
+    }
+}
+
 // COMP TASK START ----------------------------------------------
 void comp() {
     uint8_t tick_time = 0;
@@ -280,6 +297,9 @@ void comp() {
     uint16_t TICK_NUL = roundf(SMP_RATE * 2 / (125 * 0.4));
     uint8_t volTemp[4];
     uint16_t OfstCfg[4];
+    uint8_t rowLoopStart = 0;
+    int8_t rowLoopCont = 0;
+    bool enbRowLoop = false;
     /*
     pwm_audio_config_t pwm_audio_config = {
         .gpio_num_left = GPIO_NUM_26,
@@ -490,7 +510,7 @@ void comp() {
 
                         if (part_buffer[part_buffer_point][tracker_point][chl][2] == 9) {
                             OfstCfg[chl] = part_buffer[part_buffer_point][tracker_point][chl][3] << 8;
-                            printf("SMP OFST %d\n", OfstCfg[chl]);
+                            // printf("SMP OFST %d\n", OfstCfg[chl]);
                         }
 
                         if (part_buffer[part_buffer_point][tracker_point][chl][2] == 12) {
@@ -504,8 +524,25 @@ void comp() {
                             if (decimalTens == 9) {
                                 enbRetrigger[chl] = true;
                                 RetriggerConfig[chl] = hexToDecimalOnes(part_buffer[part_buffer_point][tracker_point][chl][3]);
-                                printf("RETRIGGER %d\n", RetriggerConfig[chl]);
+                                // printf("RETRIGGER %d\n", RetriggerConfig[chl]);
                                 volTemp[chl] = vol[chl];
+                            } else if (decimalTens == 6) {
+                                if (hexToDecimalOnes(part_buffer[part_buffer_point][tracker_point][chl][3]) == 0) {
+                                    rowLoopStart = tracker_point;
+                                    // printf("SET LOOP START %d\n", rowLoopStart);
+                                } else {
+                                    if (rowLoopCont == 0) {
+                                        rowLoopCont = hexToDecimalOnes(part_buffer[part_buffer_point][tracker_point][chl][3]);
+                                        // printf("SET LOOP CONT %d\n", rowLoopCont);
+                                    } else {
+                                        rowLoopCont--;
+                                        // printf("LOOP CONT - 1 %d\n", rowLoopCont);
+                                    }
+                                    if (rowLoopCont > 0) {
+                                        // printf("ROWLOOP %d\n", rowLoopCont);
+                                        enbRowLoop = true;
+                                    }
+                                }
                             }
                             // printf("LINE VOL %s TO %d\n", (decimalTens == 10) ? "UP" : ((decimalTens == 11) ? "DOWN" : "UNCHANGED"), vol[chl]);
                         }
@@ -546,6 +583,11 @@ void comp() {
                         //}
                     }
                     tracker_point++;
+                    if (enbRowLoop) {
+                        tracker_point = rowLoopStart;
+                        enbRowLoop = false;
+                        printf("SKIP TO %d\n", rowLoopStart);
+                    }
                     if ((tracker_point > 63) || skipToNextPart || skipToAnyPart) {
                         tracker_point = 0;
                         if (skipToAnyPart) {
@@ -586,8 +628,9 @@ void comp() {
                 }
             }
         }
+        apply_delay(&buffer, BUFF_SIZE);
         dac_audio_write(&buffer, BUFF_SIZE, &wrin, portMAX_DELAY);
-        vTaskDelay(1);
+        // vTaskDelay(1);
         //ESP_LOGI("STEP_SIZE", "%d %d", wrin, BUFF_SIZE);
     }
 }
@@ -682,7 +725,7 @@ void read_wave_data(uint8_t (*wave_info)[5], uint8_t* tracker_data, uint8_t** wa
 
 void app_main(void)
 {
-    xTaskCreate(&display, "wave_view", 7000, NULL, 5, NULL);
+    xTaskCreate(&display, "wave_view", 7000, NULL, 4, NULL);
     // xTaskCreatePinnedToCore(&Cpu_task, "cpu_task", 4096, NULL, 0, NULL, 0);
 /*
     for (int i = 0; i < NUM_PATTERNS; i++) {
