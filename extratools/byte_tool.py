@@ -14,7 +14,7 @@ def file_to_c_uint8_array(input_file, output_file, array_name):
         f.write("\n};\n")
 
 if __name__ == "__main__":
-    input_file = "d-zire_-_native_cry.mod"
-    output_file = "d-zire_-_native_cry.h"
+    input_file = "space_debris.mod"
+    output_file = "space_debris.h"
     array_name = "tracker_data"
     file_to_c_uint8_array(input_file, output_file, array_name)
