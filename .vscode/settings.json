@@ -49,7 +49,8 @@
     "type_traits": "c",
     "vol_table.h": "c",
     "8bit.h": "c",
-    "dac_audio.h": "c"
+    "dac_audio.h": "c",
+    "d-zire_-_native_cry.h": "c"
   },
   "cmake.configureOnOpen": true,
   "idf.port": "/dev/cu.wchusbserial56280085231"

@@ -6,9 +6,10 @@
 #include <driver/gpio.h>
 #include <math.h>
 #include <esp_log.h>
-#include "d-zire_-_native_cry.h"
+#include "laamaa_-_saint_lager.h"
+// #include "space_debris.h"
 // #include "secret_of_a_pyramid.h"
-// #include "EFXTEST.h"
+// #include "8bit.h"
 #include "ssd1306.h"
 // #include "font8x8_basic.h"
 #include "vol_table.h"
@@ -42,8 +43,8 @@ int8_t tracker_point = 0;
 #define BASE_FREQ 8267
 bool dispRedy = false;
 
-float patch_table[16] = {3546836, 3572516, 3598624, 3624304, 3650840, 3676948, 3703912, 3730876,
-                         3347816, 3372212, 3396180, 3421004, 3445828, 3471080, 3495904, 3521584};
+float patch_table[16] = {3546836, 3555123, 3563410, 3571697, 3579984, 3588271, 3596558, 3604845,
+                         3538549, 3530262, 3521975, 3513688, 3505401, 3497114, 3488827, 3480540};
 
 inline void hexToDecimal(uint8_t num, uint8_t *tens, uint8_t *ones) {
     *tens = (num >> 4) & 0x0F;
@@ -206,36 +207,30 @@ uint8_t arpNote[2][4] = {0};
 float arpFreq[3][4];
 int8_t sample1;
 int8_t sample2;
-int8_t make_data(float freq, uint8_t vole, uint8_t chl, bool isLoop, uint16_t loopStart, uint16_t loopLen, uint32_t smp_start, uint16_t smp_size, uint8_t smp_vol) {
+int8_t make_data(float freq, uint8_t vole, uint8_t chl, bool isLoop, uint16_t loopStart, uint16_t loopLen, uint32_t smp_start, uint16_t smp_size) {
     if (vole <= 0 || freq < 0) {
         return 0;
     }
-    // 计算通道数据索引和浮点数部分
-    float data_index_float = data_index[chl];
-    int data_index_int_floor = (int)data_index_float;
-    float frac = data_index_float - data_index_int_floor;
-    // 边界检查和处理
-    if (isLoop && data_index_int_floor >= (loopStart + loopLen)) {
-        data_index[chl] = loopStart;
-    } else if (!isLoop && data_index_int_floor >= smp_size) {
-        vol[chl] = 0;
-        return 0;
-    }
-    // 获取采样值
-    sample1 = tracker_data[data_index_int_floor + smp_start];
-    sample2 = tracker_data[data_index_int_floor + 1 + smp_start];
-    // 达到采样末尾时不插值
-    if (data_index_int_floor + 1 >= smp_size) {
-        if (isLoop) {
+    // 更新通道的数据索引
+    data_index_int[chl] = roundf(data_index[chl]);
+    data_index[chl] += freq / (SMP_RATE<<1);
+    // 检查是否启用了循环
+    if (isLoop) {
+        // 如果启用了循环，则调整索引
+        if (data_index_int[chl] >= (loopStart + loopLen)) {
+            data_index[chl] = data_index[chl] - data_index_int[chl];
             data_index[chl] = loopStart;
-            sample2 = tracker_data[loopStart + 1 + smp_start];
-        } else {
-            return sample1;
+        }
+    } else {
+        // 检查是否到达了样本的末尾
+        if (data_index_int[chl] >= smp_size) {
+            // 将音量标记为0并返回
+            vol[chl] = 0;
+            return 0;
         }
     }
-    // 更新数据索引
-    data_index[chl] += freq / (SMP_RATE << 1);
-    return (int8_t)roundf((sample1 + frac * (sample2 - sample1)) * vol_table[vole] * vol_table[smp_vol]);
+    // 处理音频数据并应用音量调整
+    return (int8_t)roundf((int8_t)tracker_data[data_index_int[chl] + smp_start] * vol_table[vole]);
 }
 // AUDIO DATA COMP END ------------------------------------------
 
@@ -300,6 +295,7 @@ void comp() {
     uint8_t rowLoopStart = 0;
     int8_t rowLoopCont = 0;
     bool enbRowLoop = false;
+    // uint16_t arpLastNote[4] = {0};
     /*
     pwm_audio_config_t pwm_audio_config = {
         .gpio_num_left = GPIO_NUM_26,
@@ -318,7 +314,7 @@ void comp() {
         .i2s_num = I2S_NUM_0,
         .sample_rate = SMP_RATE,
         .bits_per_sample = SMP_BIT,
-        .dac_mode = I2S_DAC_CHANNEL_LEFT_EN,
+        .dac_mode = I2S_DAC_CHANNEL_BOTH_EN,
         .dma_buf_count = 4,
         .dma_buf_len = 256,
         .max_data_size = BUFF_SIZE << 2
@@ -338,9 +334,9 @@ void comp() {
         for(uint16_t i = 0; i < BUFF_SIZE; i++) {
             for(chl = 0; chl < 4; chl++) {
                 if (wave_info[smp_num[chl]][4] > 2) {
-                    buffer_ch[chl][i] = make_data(frq[chl], vol[chl], chl, true, wave_info[smp_num[chl]][3]*2, wave_info[smp_num[chl]][4]*2, wav_ofst[smp_num[chl]], wave_info[smp_num[chl]][0], wave_info[smp_num[chl]][2]);
+                    buffer_ch[chl][i] = make_data(frq[chl], vol[chl], chl, true, wave_info[smp_num[chl]][3]*2, wave_info[smp_num[chl]][4]*2, wav_ofst[smp_num[chl]], wave_info[smp_num[chl]][0]);
                 } else {
-                    buffer_ch[chl][i] = make_data(frq[chl], vol[chl], chl, false, 0, 0, wav_ofst[smp_num[chl]], wave_info[smp_num[chl]][0], wave_info[smp_num[chl]][2]);
+                    buffer_ch[chl][i] = make_data(frq[chl], vol[chl], chl, false, 0, 0, wav_ofst[smp_num[chl]], wave_info[smp_num[chl]][0]);
                 }
             }
             audio_temp = buffer_ch[0][i] 
@@ -415,7 +411,7 @@ void comp() {
 
                         if (part_buffer[part_buffer_point][tracker_point][chl][1]) {
                             smp_num[chl] = part_buffer[part_buffer_point][tracker_point][chl][1];
-                            vol[chl] = 64;
+                            vol[chl] = wave_info[smp_num[chl]][2];
                         }
 
                         if (part_buffer[part_buffer_point][tracker_point][chl][0]) {
@@ -431,13 +427,8 @@ void comp() {
                                     portToneSource[chl] = period[chl];
                                 }
                                 // printf("PT TARGET SET TO %d. SOURCE IS %d\n", portToneTarget[chl], portToneSource[chl]);
-                                if (part_buffer[part_buffer_point][tracker_point][chl][2] == 5) {
-                                    hexToDecimal(part_buffer[part_buffer_point][tracker_point][chl][3], &volUp[chl], &volDown[chl]);
-                                    continue;
-                                } else {
-                                    volUp[chl] = volDown[chl] = 0;
-                                }
-                                if (part_buffer[part_buffer_point][tracker_point][chl][3]) {
+                                if ((part_buffer[part_buffer_point][tracker_point][chl][3])
+                                        && (part_buffer[part_buffer_point][tracker_point][chl][2] != 5)) {
                                     portToneSpeed[chl] = part_buffer[part_buffer_point][tracker_point][chl][3];
                                 }
                             } else {
@@ -448,7 +439,7 @@ void comp() {
                             }
                             if (!(part_buffer[part_buffer_point][tracker_point][chl][2] == 12) 
                                 && part_buffer[part_buffer_point][tracker_point][chl][1]) {
-                                vol[chl] = 64;
+                                vol[chl] = wave_info[smp_num[chl]][2];
                             }
                             if (part_buffer[part_buffer_point][tracker_point][chl][1]) {
                                 smp_num[chl] = part_buffer[part_buffer_point][tracker_point][chl][1];
@@ -456,7 +447,11 @@ void comp() {
                         }
 
                         if (part_buffer[part_buffer_point][tracker_point][chl][2] == 10
-                                || part_buffer[part_buffer_point][tracker_point][chl][2] == 6) {
+                                || part_buffer[part_buffer_point][tracker_point][chl][2] == 6
+                                    || part_buffer[part_buffer_point][tracker_point][chl][2] == 5) {
+                            if (part_buffer[part_buffer_point][tracker_point][chl][2] == 10) {
+                                enbPortTone[chl] = false;
+                            }
                             hexToDecimal(part_buffer[part_buffer_point][tracker_point][chl][3], &volUp[chl], &volDown[chl]);
                             // printf("VOL+=%d -=%d\n", volUp[chl], volDown[chl]);
                         } else {
@@ -561,15 +556,10 @@ void comp() {
                                 && part_buffer[part_buffer_point][tracker_point][chl][3]) {
                             arp_p = 0;
                             hexToDecimal(part_buffer[part_buffer_point][tracker_point][chl][3], &arpNote[0][chl], &arpNote[1][chl]);
-                            if (part_buffer[part_buffer_point][tracker_point][chl][0]) {
-                                arpFreq[0][chl] = patch_table[wave_info[smp_num[chl]][1]] / period[chl];
-                                arpFreq[1][chl] = freq_up(arpFreq[0][chl], arpNote[0][chl]);
-                                arpFreq[2][chl] = freq_up(arpFreq[0][chl], arpNote[1][chl]);
-                                // printf("ARP CTRL %d %d %f %f %f\n", arpNote[0][chl], arpNote[1][chl], arpFreq[0][chl], arpFreq[1][chl], arpFreq[2][chl]);
-                            } else {
-                                arpFreq[1][chl] = freq_up(arpFreq[0][chl], arpNote[0][chl]);
-                                arpFreq[2][chl] = freq_up(arpFreq[0][chl], arpNote[1][chl]);
-                            }
+                            arpFreq[0][chl] = patch_table[wave_info[smp_num[chl]][1]] / period[chl];
+                            arpFreq[1][chl] = freq_up(arpFreq[0][chl], arpNote[0][chl]);
+                            arpFreq[2][chl] = freq_up(arpFreq[0][chl], arpNote[1][chl]);
+                            // printf("ARP CTRL %d %d %f %f %f\n", arpNote[0][chl], arpNote[1][chl], arpFreq[0][chl], arpFreq[1][chl], arpFreq[2][chl]);
                             enbArp[chl] = true;
                         } else {
                             if (enbArp[chl]) {
@@ -628,7 +618,7 @@ void comp() {
                 }
             }
         }
-        apply_delay(&buffer, BUFF_SIZE);
+        // apply_delay(&buffer, BUFF_SIZE);
         dac_audio_write(&buffer, BUFF_SIZE, &wrin, portMAX_DELAY);
         // vTaskDelay(1);
         //ESP_LOGI("STEP_SIZE", "%d %d", wrin, BUFF_SIZE);
