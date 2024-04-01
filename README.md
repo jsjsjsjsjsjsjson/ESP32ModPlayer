@@ -31,6 +31,7 @@ This project is an MOD music player based on ESP32, capable of playing MOD music
 
 ## Notes
 
+- Can run on a single-core ESP32 at the minimum clock frequency (80MHz)
 - This project only supports MOD music files in specific formats.
 - If you do not have an SSD1306 screen, remove the code in the app_main function that starts the "wave_view" task. This will not affect any playback functionality
 - Make sure to have the ESP-IDF development environment installed before compiling and flashing the project.
